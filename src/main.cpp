@@ -93,7 +93,7 @@ void loop()
   if (lightOn)
   {
     // Автоматическое переключение в режим яркости с задержкой в три минуты
-    if (modeHue && millis() - chHueDelay > 3000 * 60)
+    if (modeHue && millis() - chHueDelay > 180000)
     {
       // Переходим в режим регулировки яркости
       modeHue = false;
