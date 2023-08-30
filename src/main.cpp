@@ -35,6 +35,9 @@ uint32_t chHueDelay = 0;
 // Режим работы по-умолчанию - яркость
 bool modeHue = false;
 
+// Задержка перехода в режим яркости одна минута
+int hueDelay = 60000;
+
 // Объявление функций
 void sendPWM();
 
@@ -93,7 +96,7 @@ void loop()
   if (lightOn)
   {
     // Автоматическое переключение в режим яркости с задержкой в три минуты
-    if (modeHue && millis() - chHueDelay > 180000)
+    if (modeHue && millis() - chHueDelay > hueDelay)
     {
       // Переходим в режим регулировки яркости
       modeHue = false;
