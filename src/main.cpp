@@ -1,12 +1,12 @@
 #include <Arduino.h>
 
 // Назначаем пины для диодов
-#define ledPin1 9 // Теплые диоды
-#define ledPin2 10 // Холодные диоды
+#define ledPinW 9 // Теплые диоды
+#define ledPinC 10 // Холодные диоды
 
 // Назначаем пины энеоднра
 #define enc0 2 // Канал A энкодера
-#define enc1 2 // Канал B энкодера
+#define enc1 3 // Канал B энкодера
 #define encBtn 4 // Кнопка энкодера
 
 // Назначаем пины кнопки
@@ -38,10 +38,10 @@ int ledWarm, ledCold;
 // Каналы яркости и оттенка
 byte chHue, chBright;
 
-// Задержка перехода в режим яркости одна минута
+// Задержка перехода энкодера в режим яркости одна минута
 uint32_t hueDelay = 60000;
 
-// Флаг задержки переключения в канал яркости
+// Флаг задержки переключения энкодера в канал яркости
 uint32_t chHueDelay = 0;
 
 // Библиотека работы с памятью
@@ -63,8 +63,8 @@ void setup()
   TCCR1B = 0b00001001; // x1 fast pwm
 
   // Назначаем пины на выход
-  pinMode(ledPin1, OUTPUT);
-  pinMode(ledPin2, OUTPUT);
+  pinMode(ledPinW, OUTPUT);
+  pinMode(ledPinC, OUTPUT);
 
   // Открываем Serial на скорости 9600 бод
   // Serial.begin(9600);
@@ -75,7 +75,7 @@ void loop()
   // Пороверка состояния кнопки включения
   bool btnState = digitalRead(buttonPin);
 
-  if (btnState && !lightOn && millis() - btnTimer > 100)
+  if (btnState && !lightOn && millis() - btnTimer > 100) // В момент включения кнопки
   {
     lightOn = true;
     btnTimer = millis();
@@ -90,7 +90,7 @@ void loop()
     // Включить диоды
     sendPWM();
   }
-  if (!btnState && lightOn && millis() - btnTimer > 100)
+  if (!btnState && lightOn && millis() - btnTimer > 100) // В момент выключения кнопки
   {
     lightOn = false;
     btnTimer = millis();
@@ -238,8 +238,8 @@ void sendPWM()
   ledCold = getCRT(ledCold);
 
   // Выводим конечные значения на пины
-  analogWrite(ledPin1, ledWarm); // Теплые диоды
-  analogWrite(ledPin2, ledCold); // Холодные диоды
+  analogWrite(ledPinW, ledWarm); // Теплые диоды
+  analogWrite(ledPinC, ledCold); // Холодные диоды
   // Serial.println("chHue=" + String(chHue));
   // Serial.println("ledCold=" + String(ledCold) + ", ledWarm=" + String(ledWarm));
 }
