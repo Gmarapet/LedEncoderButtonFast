@@ -73,7 +73,7 @@ void setup()
 void loop()
 {
   // Пороверка состояния кнопки включения
-  bool btnState = digitalRead(buttonPin);
+  bool btnState = digitalRead(extBtn);
 
   if (btnState && !lightOn && millis() - btnTimer > 100) // В момент включения кнопки
   {
@@ -116,10 +116,10 @@ void loop()
       chHueDelay = 0;
     }
 
-    enc.tick(); // опрос энкодера происходит здесь
+    eb.tick(); // опрос энкодера происходит здесь
 
     // Обработка нажатий кнопки
-    if (enc.click())
+    if (eb.click())
     {
       modeHue = !modeHue; // При нажатии меняем режим энкодера
       if (modeHue)
@@ -135,7 +135,7 @@ void loop()
     }
 
     // Удержание кнопки
-    if (enc.held())
+    if (eb.hold())
     {
       modeHue = false;        // Преводим энкодер в режим яркости
       chHueDelay = 0;         // Контроль задержки перехода в канал яркости
@@ -148,12 +148,12 @@ void loop()
     }
 
     // Обработка поворотов
-    if (enc.turn())
+    if (eb.turn())
     {
 
-      if (enc.fast())
+      if (eb.fast())
       { // В быстром режиме
-        if (enc.right())
+        if (eb.right())
           eb.counter += fastStep; // при повороте направо прибавлять по fastStep,
         else
           eb.counter -= fastStep; // при повороте налево убавлять по fastStep
@@ -175,20 +175,20 @@ void loop()
     }
 
     // Обработа нажатых поворотов
-    if (enc.turnH())
+    if (eb.turnH())
     {
       modeHue = false;        // Преводим энкодер в режим яркости
       chBright = 255;         // Канал яркости - в максимум
       eb.counter = chBright; // Сохраняем в счетчик максимальную яркость
-      if (enc.leftH())
+      if (eb.leftH())
         chHue = 255; // Нажатый поворот налево оттенок теплый
-      if (enc.rightH())
+      if (eb.rightH())
         chHue = 0; // Нажатый поворот направо оттенок холодный
       sendPWM();   // Рассчитываем ШИМ и отправляем диодам
     }
 
     // Запись настроек в память по тройному клику
-    if (enc.hasClicks(3))
+    if (eb.hasClicks(3))
     {
       modeHue = !modeHue;      // Исправляем изменившийся после трех кликов режим энкодера
       EEPROM.put(0, chHue);    // Запоминаем в EEPROM значение канала оттенка
