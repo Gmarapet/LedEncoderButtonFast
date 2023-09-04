@@ -1,33 +1,26 @@
 #include <Arduino.h>
 
 // Назначаем пины для диодов
-#define ledPinW 9 // Теплые диоды
+#define ledPinW 9  // Теплые диоды
 #define ledPinC 10 // Холодные диоды
 
-// Назначаем пины энеоднра
-#define enc0 2 // Канал A энкодера
-#define enc1 3 // Канал B энкодера
+// Назначаем пины энкодера
+#define enc0 2   // Канал A энкодера
+#define enc1 3   // Канал B энкодера
 #define encBtn 4 // Кнопка энкодера
 
 // Назначаем пины кнопки
 #define extBtn 5 // Кнопка включения лампы
 
-// Переменные кнопки включения
-bool lightOn = false;
-uint32_t btnTimer = 0;
-
-// Библиотека работы с энкодером версия ^3.0
-#include <EncButton.h>
+// Библиотека работы с энкодером
+#include <EncButton.h> // версия ^3.0
 // Подключаем энкодер. Пины 2 и 3 - энкодер, пин 4 -кнопка
 EncButton eb(enc0, enc1, encBtn, INPUT, INPUT); // энкодер с кнопкой <A, B, KEY>
-// EncButton eb(enc0, enc1, btn);                    // пины энкодера и кнопки
-// EncButton eb(enc0, enc1, btn, modeEnc);           // + режим пинов энкодера (умолч. INPUT)
-// EncButton eb(enc0, enc1, btn, modeEnc, modeBtn);  // + режим пина кнопки (умолч. INPUT_PULLUP)
 // EncButton eb(enc0, enc1, btn, modeEnc, modeBtn, btnLevel);  // + уровень кнопки (умолч. LOW)
 
 // Кнопка
-Button b(extBtn, INPUT); //
-// // + режим пина кнопки (умолч. INPUT_PULLUP)
+Button onOff(extBtn, INPUT, HIGH);
+// режим пина кнопки (умолч. INPUT_PULLUP), уровень кнопки (умолч. LOW)
 
 // Величина шага быстрого поворота энкодера
 byte fastStep = 10;
@@ -40,15 +33,14 @@ byte chHue, chBright;
 
 // Задержка перехода энкодера в режим яркости одна минута
 uint32_t hueDelay = 60000;
-
 // Флаг задержки переключения энкодера в канал яркости
 uint32_t chHueDelay = 0;
 
-// Библиотека работы с памятью
-#include <EEPROM.h>
-
 // Режим работы по-умолчанию - яркость
 bool modeHue = false;
+
+// Библиотека работы с памятью
+#include <EEPROM.h>
 
 // Объявление функций
 void sendPWM();
@@ -72,14 +64,12 @@ void setup()
 
 void loop()
 {
-  // Пороверка состояния кнопки включения
-  bool btnState = digitalRead(extBtn);
+  // Обработка кнопки включения
 
-  if (btnState && !lightOn && millis() - btnTimer > 100) // В момент включения кнопки
+  onOff.tick();
+  // В момент нажатия кнопки
+  if (onOff.press())
   {
-    lightOn = true;
-    btnTimer = millis();
-    // Serial.println("Кнопка нажата");
     // Прочитать значения каналов цвета и яркости из памяти
     EEPROM.get(0, chHue);
     EEPROM.get(1, chBright);
@@ -90,12 +80,9 @@ void loop()
     // Включить диоды
     sendPWM();
   }
-  if (!btnState && lightOn && millis() - btnTimer > 100) // В момент выключения кнопки
+  // В момент отпускания кнопки
+  if (onOff.release())
   {
-    lightOn = false;
-    btnTimer = millis();
-    // Serial.println("Кнопка отпущена");
-
     // Обнуляем каналы и счетчик
     chBright = 0;
     chHue = 0;
@@ -105,7 +92,7 @@ void loop()
   }
 
   // Если кнопка включения активна
-  if (lightOn)
+  if (onOff.holding())
   {
     // Автоматическое переключение в режим яркости с задержкой hueDelay
     if (modeHue && millis() - chHueDelay > hueDelay)
@@ -121,10 +108,10 @@ void loop()
     // Обработка нажатий кнопки
     if (eb.click())
     {
-      modeHue = !modeHue; // При нажатии меняем режим энкодера
+      modeHue = !modeHue; // По клику меняем режим энкодера
       if (modeHue)
       {
-        eb.counter = chHue;   // Передаем счетчику канал оттенка
+        eb.counter = chHue;    // Передаем счетчику канал оттенка
         chHueDelay = millis(); // Включаем задержку перехода в канал яркости
       }
       else
@@ -137,12 +124,12 @@ void loop()
     // Удержание кнопки
     if (eb.hold())
     {
-      modeHue = false;        // Преводим энкодер в режим яркости
-      chHueDelay = 0;         // Контроль задержки перехода в канал яркости
-      chBright = 255;         // Канал яркости - в максимум
-      chHue = 127;            // Применяем яркость на оба канала
+      modeHue = false;       // Преводим энкодер в режим яркости
+      chHueDelay = 0;        // Контроль задержки перехода в канал яркости
+      chBright = 255;        // Канал яркости - в максимум
+      chHue = 127;           // Применяем яркость на оба канала
       eb.counter = chBright; // Сохраняем в счетчик максимальную яркость
-      sendPWM();              // Рассчитываем ШИМ и отправляем диодам
+      sendPWM();             // Рассчитываем ШИМ и отправляем диодам
 
       // Serial.println("Максимальная яркость обоих каналов!!!");
     }
@@ -164,7 +151,7 @@ void loop()
       // Определяемся в какой канал пишет энкодер
       if (modeHue)
       {
-        chHue = eb.counter;   // Значения счетчика записываются в канал цвета
+        chHue = eb.counter;    // Значения счетчика записываются в канал цвета
         chHueDelay = millis(); // Сбрасывам задежку переключения в канал яркости
       }
       else
@@ -177,14 +164,14 @@ void loop()
     // Обработа нажатых поворотов
     if (eb.turnH())
     {
-      modeHue = false;        // Преводим энкодер в режим яркости
-      chBright = 255;         // Канал яркости - в максимум
+      modeHue = false;       // Преводим энкодер в режим яркости
+      chBright = 255;        // Канал яркости - в максимум
       eb.counter = chBright; // Сохраняем в счетчик максимальную яркость
       if (eb.leftH())
-        chHue = 255; // Нажатый поворот налево оттенок теплый
+        chHue = 0; // Нажатый поворот налево оттенок теплый
       if (eb.rightH())
-        chHue = 0; // Нажатый поворот направо оттенок холодный
-      sendPWM();   // Рассчитываем ШИМ и отправляем диодам
+        chHue = 255; // Нажатый поворот направо оттенок холодный
+      sendPWM();     // Рассчитываем ШИМ и отправляем диодам
     }
 
     // Запись настроек в память по тройному клику
@@ -212,25 +199,25 @@ byte getCRT(byte val)
 // Функция рассчета ШИМ и вывода его на диоды
 void sendPWM()
 {
-  byte delta;
-  if (chHue < 128)
+  byte delta;      // Разница в яркости каналов
+  if (chHue < 128) // Если chHue меньше 128, ярче теплый канал
   {
-    delta = chHue << 1;
-    delta = ~delta;
+    delta = chHue << 1; // Разницу умножаем на два, получаем значения от 0 до 254 с шагом 2
+    delta = ~delta;     // Инвертируем значение разницы
     if (chHue == 127)
-      delta = 0;
-    ledWarm = chBright;
-    ledCold = chBright - delta;
-    ledCold = constrain(ledCold, 0, 255);
+      delta = 0;                          // 127*2=254 (после инверсии = 1), принудительно меняем на 0
+    ledWarm = chBright;                   // Теплый канал равен яркости
+    ledCold = chBright - delta;           // Холодный канал меньше на дельту
+    ledCold = constrain(ledCold, 0, 255); // Ограничиваем диапазон одним байтом
   }
-  else
+  else // Если chHue больше 128 и больше, ярче холодный канал
   {
-    delta = (chHue - 128) << 1;
+    delta = (chHue - 128) << 1; // Вычитаем из chHue 128 и умножаем на два получаем значения от 0 до 254 с шагом 2
     if (chHue == 255)
-      delta = 255;
-    ledCold = chBright;
-    ledWarm = chBright - delta;
-    ledWarm = constrain(ledWarm, 0, 255);
+      delta = 255;                        // 127*2=254, принудительно присваеваем 255
+    ledCold = chBright;                   // Холодный канал равен каналу яркости
+    ledWarm = chBright - delta;           // Теплый канал менше на дельту
+    ledWarm = constrain(ledWarm, 0, 255); // Ограничиваем диапазон одним байтом
   }
 
   // Корректируем гамму каналов ШИМ
