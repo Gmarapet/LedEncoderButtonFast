@@ -25,16 +25,20 @@ Button onOff(extBtn, INPUT, HIGH);
 // Величина шага быстрого поворота энкодера
 byte fastStep = 10;
 
-// Каналы для записи ШИМ
+// Каналы для записи ШИМ signed int16_t два байта со знаком
 int ledWarm, ledCold;
 
 // Каналы яркости и оттенка
 byte chHue, chBright;
 
-// Задержка перехода энкодера в режим яркости одна минута
-uint32_t hueDelay = 60000;
+// Задержка перехода энкодера в режим яркости десять секунд
+uint32_t hueDelay = 10000;
 // Флаг задержки переключения энкодера в канал яркости
-uint32_t chHueDelay = 0;
+uint32_t chHueDelayMillis = 0;
+// Переменные плавного включения/выключения диодов
+byte fadeSmooth = 1;     // Шаг затухания в миллисекундах
+uint32_t fadeDelayMillis = 0; // Счетчик в миллисекундах
+
 
 // Режим работы по-умолчанию - яркость
 bool modeHue = false;
@@ -43,149 +47,6 @@ bool modeHue = false;
 #include <EEPROM.h>
 
 // Объявление функций
-void sendPWM();
-
-void setup()
-{
-  // // Установить частоту 31,4 кГц на пины D9 и D10 (Timer1)
-  // TCCR1A = 0b00000001; // 8bit
-  // TCCR1B = 0b00000001; // x1 phase correct
-  // Пины D9 и D10 - 62.5 кГц
-  TCCR1A = 0b00000001; // 8bit
-  TCCR1B = 0b00001001; // x1 fast pwm
-
-  // Назначаем пины на выход
-  pinMode(ledPinW, OUTPUT);
-  pinMode(ledPinC, OUTPUT);
-
-  // Открываем Serial на скорости 9600 бод
-  // Serial.begin(9600);
-}
-
-void loop()
-{
-  // Обработка кнопки включения
-
-  onOff.tick();
-  // В момент нажатия кнопки
-  if (onOff.press())
-  {
-    // Прочитать значения каналов цвета и яркости из памяти
-    EEPROM.get(0, chHue);
-    EEPROM.get(1, chBright);
-
-    // Установить счетчик энкодера равным каналу яркости
-    eb.counter = chBright;
-
-    // Включить диоды
-    sendPWM();
-  }
-  // В момент отпускания кнопки
-  if (onOff.release())
-  {
-    // Обнуляем каналы и счетчик
-    chBright = 0;
-    chHue = 0;
-    eb.counter = 0;
-    // Выключаем диоды
-    sendPWM();
-  }
-
-  // Если кнопка включения активна
-  if (onOff.holding())
-  {
-    // Автоматическое переключение в режим яркости с задержкой hueDelay
-    if (modeHue && millis() - chHueDelay > hueDelay)
-    {
-      // Переходим в режим регулировки яркости
-      modeHue = false;
-      eb.counter = chBright; // Передаем счетчику канал яркости
-      chHueDelay = 0;
-    }
-
-    eb.tick(); // опрос энкодера происходит здесь
-
-    // Обработка нажатий кнопки
-    if (eb.click())
-    {
-      modeHue = !modeHue; // По клику меняем режим энкодера
-      if (modeHue)
-      {
-        eb.counter = chHue;    // Передаем счетчику канал оттенка
-        chHueDelay = millis(); // Включаем задержку перехода в канал яркости
-      }
-      else
-      {
-        eb.counter = chBright; // Передаем счетчику канал яркости
-        chHueDelay = 0;
-      }
-    }
-
-    // Удержание кнопки
-    if (eb.hold())
-    {
-      modeHue = false;       // Преводим энкодер в режим яркости
-      chHueDelay = 0;        // Контроль задержки перехода в канал яркости
-      chBright = 255;        // Канал яркости - в максимум
-      chHue = 127;           // Применяем яркость на оба канала
-      eb.counter = chBright; // Сохраняем в счетчик максимальную яркость
-      sendPWM();             // Рассчитываем ШИМ и отправляем диодам
-
-      // Serial.println("Максимальная яркость обоих каналов!!!");
-    }
-
-    // Обработка поворотов
-    if (eb.turn())
-    {
-
-      if (eb.fast())
-      { // В быстром режиме
-        if (eb.right())
-          eb.counter += fastStep; // при повороте направо прибавлять по fastStep,
-        else
-          eb.counter -= fastStep; // при повороте налево убавлять по fastStep
-      }
-
-      eb.counter = constrain(eb.counter, 0, 255); // Окраничиваем диапазон eb.counter
-
-      // Определяемся в какой канал пишет энкодер
-      if (modeHue)
-      {
-        chHue = eb.counter;    // Значения счетчика записываются в канал цвета
-        chHueDelay = millis(); // Сбрасывам задежку переключения в канал яркости
-      }
-      else
-      {
-        chBright = eb.counter; // Значения счетчика записываются в канал яркости
-      }
-      sendPWM(); // Рассчитываем ШИМ и отправляем диодам
-    }
-
-    // Обработа нажатых поворотов
-    if (eb.turnH())
-    {
-      modeHue = false;       // Преводим энкодер в режим яркости
-      chBright = 255;        // Канал яркости - в максимум
-      eb.counter = chBright; // Сохраняем в счетчик максимальную яркость
-      if (eb.leftH())
-        chHue = 0; // Нажатый поворот налево оттенок теплый
-      if (eb.rightH())
-        chHue = 255; // Нажатый поворот направо оттенок холодный
-      sendPWM();     // Рассчитываем ШИМ и отправляем диодам
-    }
-
-    // Запись настроек в память по тройному клику
-    if (eb.hasClicks(3))
-    {
-      modeHue = !modeHue;      // Исправляем изменившийся после трех кликов режим энкодера
-      EEPROM.put(0, chHue);    // Запоминаем в EEPROM значение канала оттенка
-      EEPROM.put(1, chBright); // и канала яркости
-
-      // Serial.println("action 3 clicks");
-      // Serial.println("chHue = " + String(chHue) + ", chBright = " + String(chBright) + ".");
-    }
-  }
-}
 
 // Функция возвращает скорректированное по CRT значение
 // для 8 бит ШИМ
@@ -227,6 +88,151 @@ void sendPWM()
   // Выводим конечные значения на пины
   analogWrite(ledPinW, ledWarm); // Теплые диоды
   analogWrite(ledPinC, ledCold); // Холодные диоды
-  // Serial.println("chHue=" + String(chHue));
+  // Serial.println("chHue=" + String(chHue) + ", chBright" + String(chBright));
   // Serial.println("ledCold=" + String(ledCold) + ", ledWarm=" + String(ledWarm));
+}
+
+
+void setup()
+{
+  // // Установить частоту 31,4 кГц на пины D9 и D10 (Timer1)
+  // TCCR1A = 0b00000001; // 8bit
+  // TCCR1B = 0b00000001; // x1 phase correct
+  // Пины D9 и D10 - 62.5 кГц
+  TCCR1A = 0b00000001; // 8bit
+  TCCR1B = 0b00001001; // x1 fast pwm
+
+  // Назначаем пины на выход
+  pinMode(ledPinW, OUTPUT);
+  pinMode(ledPinC, OUTPUT);
+
+  // Открываем Serial на скорости 9600 бод
+  // Serial.begin(9600);
+}
+
+void loop()
+{
+  // Обработка кнопки включения
+  onOff.tick();
+  // В момент нажатия кнопки
+  if (onOff.press())
+  {
+    // Прочитать значения каналов цвета и яркости из памяти
+    EEPROM.get(0, chHue);
+    EEPROM.get(1, chBright);
+
+    // Устанавливаем счетчик энкодера равным каналу яркости
+    eb.counter = chBright;
+
+    // Сбрасываем канал яркости для плавного включения
+    chBright = 0;
+  }
+  // В момент отпускания кнопки обнуляем каналы и счетчик
+  if (onOff.release())
+  {
+    modeHue = false;
+    eb.counter = 0;
+  }
+
+  // Если кнопка включения активна
+  if (onOff.holding())
+  {
+    // Автоматическое переключение в режим яркости с задержкой hueDelay
+    if (modeHue && millis() - chHueDelayMillis > hueDelay)
+    {
+      // Переходим в режим регулировки яркости
+      modeHue = false;
+      eb.counter = chBright; // Передаем счетчику канал яркости
+      chHueDelayMillis = 0;
+    }
+
+    eb.tick(); // опрос энкодера происходит здесь
+
+    // Обработка нажатий кнопки
+    if (eb.click())
+    {
+      modeHue = !modeHue; // По клику меняем режим энкодера
+      if (modeHue)
+      {
+        eb.counter = chHue;    // Передаем счетчику канал оттенка
+        chHueDelayMillis = millis(); // Включаем задержку перехода в канал яркости
+      }
+      else
+      {
+        eb.counter = chBright; // Передаем счетчику канал яркости
+        chHueDelayMillis = 0;
+      }
+    }
+
+    // Удержание кнопки
+    if (eb.hold())
+    {
+      modeHue = false;  // Преводим энкодер в режим яркости
+      chHue = 127;      // Применяем яркость на оба канала
+      eb.counter = 255; // Сохраняем в счетчик максимальную яркость
+      if (chBright == 255)
+        sendPWM();
+    }
+
+    // Обработка поворотов
+    if (eb.turn())
+    {
+      if (eb.fast())
+      { // В быстром режиме
+        if (eb.right())
+          eb.counter += fastStep; // при повороте направо прибавлять по fastStep,
+        if (eb.left())
+          eb.counter -= fastStep; // при повороте налево убавлять по fastStep
+      }
+      eb.counter = constrain(eb.counter, 0, 255); // Окраничиваем диапазон eb.counter
+    }
+
+    // Обработа нажатых поворотов
+    if (eb.turnH())
+    {
+      modeHue = false; // Преводим энкодер в режим яркости
+      if (eb.leftH())
+        chHue = 0; // Нажатый поворот налево оттенок теплый
+      if (eb.rightH())
+        chHue = 255;    // Нажатый поворот направо оттенок холодный
+      eb.counter = 255; // Сохраняем в счетчик максимальную яркость
+      if (chBright == 255)
+        sendPWM();
+    }
+
+    // Запись настроек в память по тройному клику
+    if (eb.hasClicks(3))
+    {
+      modeHue = false;         // Переводим энкодер в режим яркости
+      EEPROM.put(0, chHue);    // Запоминаем в EEPROM значение канала оттенка
+      EEPROM.put(1, chBright); // и канала яркости
+    }
+  }
+
+  // Плавно передаем значение на диоды
+  if (modeHue && chHue != eb.counter)
+  {
+    if (millis() - fadeDelayMillis > fadeSmooth)
+    {
+      if (chHue < eb.counter)
+        ++chHue;
+      if (chHue > eb.counter)
+        --chHue;
+      fadeDelayMillis = millis(); // Сбрасывам задежку затухания
+      chHueDelayMillis = millis(); // Сбрасывам задежку переключения в канал яркости
+      sendPWM();             // Рассчитываем ШИМ и отправляем на диоды
+    }
+  }
+  if (!modeHue && chBright != eb.counter)
+  {
+    if (millis() - fadeDelayMillis > fadeSmooth)
+    {
+      if (chBright < eb.counter)
+        chBright++;
+      if (chBright > eb.counter)
+        chBright--;
+      fadeDelayMillis = millis(); // Сбрасывам задежку затухания
+      sendPWM();             // Рассчитываем ШИМ и отправляем на диоды
+    }
+  }
 }
