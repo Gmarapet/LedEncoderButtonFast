@@ -36,9 +36,8 @@ uint32_t hueDelay = 10000;
 // Флаг задержки переключения энкодера в канал яркости
 uint32_t chHueDelayMillis = 0;
 // Переменные плавного включения/выключения диодов
-byte fadeSmooth = 1;     // Шаг затухания в миллисекундах
+byte fadeSmooth = 1;          // Шаг затухания в миллисекундах
 uint32_t fadeDelayMillis = 0; // Счетчик в миллисекундах
-
 
 // Режим работы по-умолчанию - яркость
 bool modeHue = false;
@@ -91,7 +90,6 @@ void sendPWM()
   // Serial.println("chHue=" + String(chHue) + ", chBright" + String(chBright));
   // Serial.println("ledCold=" + String(ledCold) + ", ledWarm=" + String(ledWarm));
 }
-
 
 void setup()
 {
@@ -154,7 +152,7 @@ void loop()
       modeHue = !modeHue; // По клику меняем режим энкодера
       if (modeHue)
       {
-        eb.counter = chHue;    // Передаем счетчику канал оттенка
+        eb.counter = chHue;          // Передаем счетчику канал оттенка
         chHueDelayMillis = millis(); // Включаем задержку перехода в канал яркости
       }
       else
@@ -204,6 +202,7 @@ void loop()
     if (eb.hasClicks(3))
     {
       modeHue = false;         // Переводим энкодер в режим яркости
+      eb.counter = chBright;   // Нечетный клик устанавливае eb.counter равным chHue, возвращаем ему значение chBright
       EEPROM.put(0, chHue);    // Запоминаем в EEPROM значение канала оттенка
       EEPROM.put(1, chBright); // и канала яркости
     }
@@ -218,9 +217,9 @@ void loop()
         ++chHue;
       if (chHue > eb.counter)
         --chHue;
-      fadeDelayMillis = millis(); // Сбрасывам задежку затухания
+      fadeDelayMillis = millis();  // Сбрасывам задежку затухания
       chHueDelayMillis = millis(); // Сбрасывам задежку переключения в канал яркости
-      sendPWM();             // Рассчитываем ШИМ и отправляем на диоды
+      sendPWM();                   // Рассчитываем ШИМ и отправляем на диоды
     }
   }
   if (!modeHue && chBright != eb.counter)
@@ -232,7 +231,7 @@ void loop()
       if (chBright > eb.counter)
         chBright--;
       fadeDelayMillis = millis(); // Сбрасывам задежку затухания
-      sendPWM();             // Рассчитываем ШИМ и отправляем на диоды
+      sendPWM();                  // Рассчитываем ШИМ и отправляем на диоды
     }
   }
 }
