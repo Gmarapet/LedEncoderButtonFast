@@ -202,7 +202,7 @@ void loop()
     if (eb.hasClicks(3))
     {
       modeHue = false;         // Переводим энкодер в режим яркости
-      eb.counter = chBright;   // Нечетный клик устанавливае eb.counter равным chHue, возвращаем ему значение chBright
+      eb.counter = chBright;   // и передаём в счётчик значение канала яркости
       EEPROM.put(0, chHue);    // Запоминаем в EEPROM значение канала оттенка
       EEPROM.put(1, chBright); // и канала яркости
     }
