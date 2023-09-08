@@ -9,23 +9,25 @@
 #define enc1 3   // Канал B энкодера
 #define encBtn 4 // Кнопка энкодера
 
-// Назначаем пины кнопки
-#define extBtn 5 // Кнопка включения лампы
+// Назначаем пин кнопки включения лампы
+#define extBtn 5
 
 // Библиотека работы с энкодером
 #include <EncButton.h> // версия ^3.0
-// Подключаем энкодер. Пины 2 и 3 - энкодер, пин 4 -кнопка
-EncButton eb(enc0, enc1, encBtn, INPUT, INPUT); // энкодер с кнопкой <A, B, KEY>
-// EncButton eb(enc0, enc1, btn, modeEnc, modeBtn, btnLevel);  // + уровень кнопки (умолч. LOW)
+// Подключаем энкодер
+// EncButton eb(encPin0, encPin1, btn, modeEnc, modeBtn, btnLevel);  // + уровень кнопки (умолч. LOW)
+EncButton eb(enc0, enc1, encBtn, INPUT, INPUT);
 
 // Кнопка
+// режим пина и уровень кнопки по-умолчанию (btn, INPUT_PULLUP, LOW)
 Button onOff(extBtn, INPUT, HIGH);
-// режим пина кнопки (умолч. INPUT_PULLUP), уровень кнопки (умолч. LOW)
 
 // Счетчик сброса настроек каналов при выключении
 uint32_t offCount = 0;
-// Задержка сброса настроек при выключении один час
-uint32_t offDelay = 3600000;
+// Задержка сброса настроек при выключении
+uint32_t offDelay = 3600000; // один час
+// uint32_t offDelay = 5000; // 5 секунд
+
 // Переменные дл хранения значения каналов до сброса
 byte chHueTemp = 0;
 byte chBrightTemp = 0;
@@ -34,7 +36,7 @@ byte chBrightTemp = 0;
 byte fastStep = 10;
 
 // Каналы для записи ШИМ signed int16_t два байта со знаком
-int ledWarm, ledCold;
+int ledWarm = 0, ledCold = 0;
 
 // Каналы яркости и оттенка
 byte chHue = 0, chBright = 0;
@@ -45,7 +47,7 @@ uint32_t hueDelay = 10000;
 uint32_t chHueDelayMillis = 0;
 // Переменные плавного включения/выключения диодов
 byte fadeSmooth = 1;          // Шаг затухания в миллисекундах
-uint32_t fadeDelayMillis = 0; // Счетчик в миллисекундах
+uint32_t fadeDelayMillis = 0; // Счетчик затухания в миллисекундах
 
 // Режим работы по-умолчанию - яркость
 bool modeHue = false;
@@ -124,10 +126,11 @@ void loop()
   {
     // Режим регулировки яркости
     modeHue = false;
+
     // Если счетчик буфера выключения обнулен
     if (!offCount)
     {
-      // Прочитать в буфер каналов значения цвета и яркости из памяти
+      // Прочитать из памяти в буфер каналов значения цвета и яркости
       EEPROM.get(0, chHueTemp);
       EEPROM.get(1, chBrightTemp);
     }
@@ -135,22 +138,31 @@ void loop()
     // Установить канал оттенка и счетчик экодера из буфера
     chHue = chHueTemp;
     eb.counter = chBrightTemp;
-
-    // Сбрасываем канал яркости для плавного включения
-    // chBright = 0;
   }
 
-  // В момент отключения кнопки включения сбрасываем каналы в буфер
-  // и обнуляем счетчик энкодера, работая в канале яркости
+  // В момент отключения кнопки сбрасываем каналы в буфер
+  // и обнуляем счетчик энкодера
   if (onOff.release())
   {
-    modeHue = false;
-    chHueTemp = chHue;
-    chBrightTemp = chBright;
-    eb.counter = 0;
     offCount = millis(); // Запускаем счетчик сброса настроек
+    chHueTemp = chHue;   // Оттенок в буфер
+    if (!modeHue)        // Если активен режим яркости
+    {
+      if (chBright == eb.counter) // Антидребезг
+      {
+        chBrightTemp = chBright; // Яркость в буфер
+      }
+    }
+    else // В режиме оттенка
+    {
+      chBrightTemp = chBright; // Яркость в буфер
+      modeHue = false;         // Переходим в режим яркости
+    }
+
+    eb.counter = 0; // Обнуляем счетчик энкодера
   }
-//  Если с момента выключения прошло времени больше offDelay, сбрасываем настройки
+
+  //  Если с момента выключения прошло времени больше offDelay, сбрасываем настройки
   if (millis() - offCount > offDelay)
     offCount = 0;
 
