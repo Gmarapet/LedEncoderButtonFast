@@ -103,6 +103,10 @@ void sendPWM()
 
 void setup()
 {
+  // Прошивка через программатор включает диоды  RXLED и TXLED. Выключаем.
+  // RXLED0
+  // TXLED0
+
   // // Установить частоту 31,4 кГц на пины D9 и D10 (Timer1)
   // TCCR1A = 0b00000001; // 8bit
   // TCCR1B = 0b00000001; // x1 phase correct
