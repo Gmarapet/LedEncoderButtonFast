@@ -25,7 +25,8 @@ upload_flags =
     -c
     usbasp
 upload_command = avrdude $UPLOAD_FLAGS -U flash:w:$SOURCE:i
-lib_deps = https://github.com/GyverLibs/EncButton
+;lib_deps = https://github.com/GyverLibs/EncButton
+lib_deps = gyverlibs/EncButton@3.2
 
 [platformio]
 description = Led Encoder Button Fast PWM
